@@ -45,7 +45,16 @@
    | `Li Wang BbLi234567` | `INVALID` |
    | `Li Wang BbWang2345` | `INVALID` |
 
-6. 确认修改内容，然后提交并推送到自己的 Fork：
+6. 第一次从这台 Ubuntu 电脑推送到 GitHub 时，安装 GitHub CLI 并登录。终端会给出一次性验证码；按提示在浏览器中输入并授权。
+
+   ```bash
+   sudo apt install -y gh
+   gh auth login -h github.com -p https --web
+   gh auth setup-git
+   gh auth status
+   ```
+
+7. 确认修改内容，然后提交并推送到自己的 Fork：
 
    ```bash
    git status
