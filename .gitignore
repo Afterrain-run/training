@@ -1,0 +1,6 @@
+/direction
+/password_checker
+/build/
+*.o
+.vscode/
+.DS_Store
