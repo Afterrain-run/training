@@ -1,10 +1,10 @@
 # Venom 算法组培训
 
-这里存放 Venom 算法组培训的示例程序和作业起始文件。每次作业使用一个独立文件夹：先读该文件夹的 README，再修改其中指定的文件。以后新增作业时，会继续在这里增加目录；保留同一个 Fork 即可接着学习。
+这里存放 Venom 算法组培训用的示例程序和作业起始代码。每次作业单独放在一个文件夹中：先读文件夹里的 README，再按要求修改代码。以后发布新作业时，我们会在本仓库增加文件夹；你可以一直使用同一个 Fork。
 
 ## 从哪里开始
 
-先准备好 Ubuntu 22.04、C++ 编译器、VS Code 和 Git，并登录自己的 GitHub 账号。第一次作业从编译一个小程序开始，再用编译警告和断点修复密码检查器；作业要求、测试数据和提交方法都写在作业目录中。
+先准备好 Ubuntu 22.04、C++ 编译器、VS Code 和 Git，并登录自己的 GitHub 账号。第一次作业会用到编译警告和断点调试：你要找出密码检查程序中的错误并修好它。具体要求、测试数据和提交方法见作业目录。
 
 | 作业 | 内容 | 入口 |
 | --- | --- | --- |
@@ -21,7 +21,7 @@
 
 ## 第一次作业怎么做
 
-1. 点击页面右上角 **Fork**，把本仓库复制到自己的 GitHub 账号，仓库名保持 `training`；然后从自己的 Fork 页面复制 **Code → HTTPS** 地址。
+1. 点击页面右上角 **Fork**，把本仓库复制到自己的 GitHub 账号，仓库名保持 `training`。然后在自己的 Fork 页面点击 **Code → HTTPS**，复制仓库地址。
 2. 在 Ubuntu 终端克隆自己的 Fork。把下方 `USERNAME` 换成自己的 GitHub 用户名；`git remote -v` 显示的 `origin` 应是你自己的地址。
 
    ```bash
@@ -34,19 +34,29 @@
    code .
    ```
 
-3. 按[第一次作业说明](./01-first-assignment/README.md)编译示例、调试并修复 `password_checker.cpp`。每次改完都要保存、重新编译和测试；保留题目要求的输入输出格式。
+3. 按[第一次作业说明](./01-first-assignment/README.md)调试并修复 `password_checker.cpp`。每次改完都要保存、重新编译和测试；不要改变题目要求的输入输出格式。
 4. 只提交作业要求修改的源文件，把提交推送到自己的 Fork，再打开 Fork 页面确认修改已经出现。提交作业时提供自己的仓库链接，例如 `https://github.com/USERNAME/training`。第一次作业说明中有具体命令。
 
-## 后续作业如何更新
+## 以后怎样获取新作业
 
-不用为每次作业重新 Fork，也不用重复克隆到同一位置。新作业发布后，先在已有的本地仓库中用 `git status` 检查：如果还有未提交的修改，先完成提交。然后在仓库根目录运行以下命令；`git remote add upstream` 只需执行一次，如果 `git remote -v` 已显示 `upstream`，跳过这一行。
+假设算法组在这里增加了“第二次作业”文件夹，你之前 Fork 的仓库和电脑上的文件不会自动更新。不用重新 Fork 或克隆，只要把新内容同步到已有的仓库。
+
+先让电脑记住算法组仓库的地址。下面的 `origin` 是你自己的 Fork，克隆时已自动设置；`upstream` 是算法组的仓库，需要添加一次。先运行 `git remote -v` 检查：如果已经显示 `upstream`，就跳过最后一条命令。
 
 ```bash
 cd ~/venom_cpp_basics/training
+git remote -v
 git remote add upstream https://github.com/Venom-Algorithm/training.git
+```
+
+以后每次发布新作业时，在仓库根目录运行下面的命令。先看 `git status`：如果还有未提交的修改，先把它们提交，再继续。
+
+```bash
+cd ~/venom_cpp_basics/training
+git status
 git fetch upstream
 git merge --no-edit upstream/main
 git push origin main
 ```
 
-`upstream` 指算法组发布作业的仓库，`origin` 指你自己的 Fork；同步成功后，新作业目录会出现在本地，并上传到你的 Fork。如果 Git 报合并冲突，先用 `git status` 找出冲突文件，处理后再完成合并和推送，不要使用强制推送覆盖历史。
+`git fetch upstream` 下载算法组的新内容；`git merge --no-edit upstream/main` 把它加入电脑上的仓库，此时才能在本地看到新作业；`git push origin main` 再把更新上传到自己的 Fork。如果 Git 报错，把运行的命令、完整报错和 `git status` 的输出发给 AI，并说明你想做什么。合并遇到冲突时，先不要推送，更不要强制推送。
