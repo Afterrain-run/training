@@ -12,8 +12,7 @@ ROS2 轮腿自平衡控制器（VMC + LQR），配合 `wheel_leg_sim` 仿真器�
 | 方向 | 话题 | 类型 | 说明 |
 |---|---|---|---|
 | 订阅 | /imu | sensor_msgs/Imu | 机身姿态与角速度 |
-| 订阅 | /joint_states | sensor_msgs/JointState | 4 关节 + 2 轮位置/速度 |
-| 发布 | /actuator_cmd | rm_msgs/WheelLegCmd | 4 关节力矩 + 2 轮力矩 |
+| 订阅 | /joint_states | sensor_msgs/JointState | 4 关节 + 2 轮位置/速度 || 发布 | /actuator_cmd | rm_msgs/WheelLegCmd | 4 关节力矩 + 2 轮力矩 |
 
 事件驱动契约：仿真器每收到一条 /actuator_cmd 推进一步（dt=0.002s）并回发状态；
 控制器按 /joint_states 的 header.stamp 去重，心跳帧不重复触发控制。
@@ -34,9 +33,11 @@ ROS2 轮腿自平衡控制器（VMC + LQR），配合 `wheel_leg_sim` 仿真器�
 ros2 run wheel_leg_sim wheel_leg_sim
 # 终端 B
 ros2 run wheel_leg_controller wheel_leg_controller
+```
 验收实测
 连续平衡 142.78 s（要求 ≥ 5 s）
 pitch 全程 −4.11° ~ 4.92°（要求 |pitch| < 10°），末 1 s 收敛至 −0.11°
 采样 71391 点 / 142.78 s ≈ 500 Hz，与事件驱动 dt=0.002s 一致
 pitch.png
 录屏证据：
+https://pan.baidu.com/s/1EyrCKBvsvp3BKuyP-DeVQg?pwd=atm4
