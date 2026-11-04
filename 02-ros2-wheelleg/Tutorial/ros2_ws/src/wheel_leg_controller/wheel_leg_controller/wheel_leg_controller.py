@@ -6,6 +6,7 @@ import numpy as np
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Imu, JointState
+from geometry_msgs.msg import Twist
 from rm_msgs.msg import WheelLegCmd
 
 from .vmc_cal import five_links_param
@@ -35,8 +36,10 @@ class WheelLegController(Node):
         self.dt=0.002
         self.wheel_radius=0.06
         self.target_length=0.10
-        self.v_set=0.0
+        self.v_set=0.0           # 经爬坡限幅后的实际目标速度
+        self.v_target=0.0        # /cmd_vel 给的原始目标速度
         self.target_w=0.0
+        self.v_ramp=0.8          # 速度爬坡限幅 (m/s^2)，防指令阶跃顶翻倒立摆
 
         self.fl_left=five_links_param(dt=self.dt)
         self.fl_right=five_links_param(dt=self.dt)
@@ -63,7 +66,12 @@ class WheelLegController(Node):
         self.cmd_pub=self.create_publisher(WheelLegCmd,'actuator_cmd',10)
         self.create_subscription(Imu,'imu',self.on_imu,10)
         self.create_subscription(JointState,'joint_states',self.on_joint_states,10)
+        self.create_subscription(Twist,'cmd_vel',self.on_cmd_vel,10)
         self.get_logger().info('wheel_leg_controller 已启动，等待 /joint_states …')
+
+    def on_cmd_vel(self,msg):
+        self.v_target=msg.linear.x
+        self.target_w=msg.angular.z
 
     def on_imu(self,msg):
         self.imu=msg
@@ -97,6 +105,16 @@ class WheelLegController(Node):
 
         common_pos=(lw_p-rw_p)/2.0
         common_speed=(lw_v-rw_v)/2.0
+
+        # 移动平衡（加分项）：速度爬坡限幅 + x_b_set 站桩冻结/运动跟随
+        dv_max=self.v_ramp*self.dt
+        self.v_set+=clamp(self.v_target-self.v_set,-dv_max,dv_max)
+        # 只在运动时让 x_b_set 跟随当前位移；站桩时冻结，
+        # 否则 x_b - x_b_set ≡ 0，位置环失效，车会匀速滑走不收敛
+        if not (common_speed==0.0 and self.v_set==0.0):
+            x_set=common_pos*self.wheel_radius
+            self.lqr_left.x_b_set=x_set
+            self.lqr_right.x_b_set=x_set
 
         l_phi1,l_phi4,l_wheel=self._control_leg(
             True,self.fl_left,self.lqr_left,self.L0_pid_left,self.yaw_pid_left,
