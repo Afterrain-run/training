@@ -5,7 +5,7 @@ import os
 import numpy as np
 import rclpy
 from rclpy.node import Node
-from sensor_msgs.msg import Imu, JointState
+from sensor_msgs.msg import Imu, JointState, Joy
 from geometry_msgs.msg import Twist
 from rm_msgs.msg import WheelLegCmd
 
@@ -40,6 +40,17 @@ class WheelLegController(Node):
         self.v_target=0.0        # /cmd_vel 给的原始目标速度
         self.target_w=0.0
         self.v_ramp=0.8          # 速度爬坡限幅 (m/s^2)，防指令阶跃顶翻倒立摆
+        self.w_eff=0.0           # 仲裁后的偏航目标角速度
+
+        # 手柄（加分项）：/joy 优先于 /cmd_vel，超时未收到自动退回
+        self.joy_v=0.0
+        self.joy_w=0.0
+        self.joy_stamp=None
+        self.deadzone=0.1
+        self._prev_buttons=[0]*12
+        self.declare_parameter('axis_v',1)       # 左摇杆上下（本机实测：推前=+1）
+        self.declare_parameter('axis_w',3)       # 右摇杆左右
+        self.declare_parameter('joy_timeout',0.5)
 
         self.fl_left=five_links_param(dt=self.dt)
         self.fl_right=five_links_param(dt=self.dt)
@@ -67,11 +78,32 @@ class WheelLegController(Node):
         self.create_subscription(Imu,'imu',self.on_imu,10)
         self.create_subscription(JointState,'joint_states',self.on_joint_states,10)
         self.create_subscription(Twist,'cmd_vel',self.on_cmd_vel,10)
+        self.create_subscription(Joy,'joy',self.on_joy,10)
         self.get_logger().info('wheel_leg_controller 已启动，等待 /joint_states …')
 
     def on_cmd_vel(self,msg):
         self.v_target=msg.linear.x
         self.target_w=msg.angular.z
+
+    def on_joy(self,msg):
+        ax=msg.axes
+        av=int(self.get_parameter('axis_v').value)
+        aw=int(self.get_parameter('axis_w').value)
+        ax_v=ax[av] if len(ax)>av else 0.0
+        ax_w=ax[aw] if len(ax)>aw else 0.0
+        dz=self.deadzone
+        # 左摇杆推前=+1 → 前进（实测符号）；右摇杆推右 → 右转（-z）
+        self.joy_v=ax_v*0.6 if abs(ax_v)>dz else 0.0
+        self.joy_w=-ax_w*2.0 if abs(ax_w)>dz else 0.0
+        # LB/RB 边沿触发调目标腿长 ±0.005，限位 0.10~0.14
+        b=list(msg.buttons)
+        if len(b)>5:
+            if b[5] and not self._prev_buttons[5]:
+                self.target_length=min(0.14,self.target_length+0.005)
+            if b[4] and not self._prev_buttons[4]:
+                self.target_length=max(0.10,self.target_length-0.005)
+            self._prev_buttons=(b+[0]*12)[:12]
+        self.joy_stamp=self.get_clock().now()
 
     def on_imu(self,msg):
         self.imu=msg
@@ -107,8 +139,18 @@ class WheelLegController(Node):
         common_speed=(lw_v-rw_v)/2.0
 
         # 移动平衡（加分项）：速度爬坡限幅 + x_b_set 站桩冻结/运动跟随
+        # 手柄优先：joy_timeout 内收到 /joy 用手柄，否则用 /cmd_vel
+        to=self.get_parameter('joy_timeout').value
+        if self.joy_stamp is not None and \
+           (self.get_clock().now()-self.joy_stamp).nanoseconds*1e-9<to:
+            v_raw=self.joy_v
+            w_raw=self.joy_w
+        else:
+            v_raw=self.v_target
+            w_raw=self.target_w
+        self.w_eff=w_raw
         dv_max=self.v_ramp*self.dt
-        self.v_set+=clamp(self.v_target-self.v_set,-dv_max,dv_max)
+        self.v_set+=clamp(v_raw-self.v_set,-dv_max,dv_max)
         # 只在运动时让 x_b_set 跟随当前位移；站桩时冻结，
         # 否则 x_b - x_b_set ≡ 0，位置环失效，车会匀速滑走不收敛
         if not (common_speed==0.0 and self.v_set==0.0):
@@ -164,7 +206,7 @@ class WheelLegController(Node):
                    +K[4]*(lqr.x_b-lqr.x_b_set)+K[6]*(lqr.v_b_whole-self.v_set)
                    +K[8]*lqr.phi+K[10]*lqr.d_phi)
 
-        yaw_ctrl=yaw_pid.compute(gyro_yaw,self.target_w)
+        yaw_ctrl=yaw_pid.compute(gyro_yaw,self.w_eff)
         wheel_cmd=(-wheel_T-yaw_ctrl) if is_left else (wheel_T-yaw_ctrl)
         wheel_cmd=clamp(wheel_cmd,-1.5,1.5)
 
